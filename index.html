@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calldata Decoder | Web3 Transaction Inspector</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-200 font-sans min-h-screen flex flex-col">
+    
+    <!-- Torus Network Global Nav -->
+    <nav class="bg-slate-900 border-b border-slate-800 p-3 md:px-8 flex flex-wrap gap-4 text-sm items-center">
+        <span class="text-slate-500 font-bold tracking-wider text-xs uppercase">Torus Network</span>
+        <a href="https://tedTorus.github.io/eth-multitool/" class="text-emerald-400 hover:text-emerald-300 transition-colors">ETH Multi-Tool</a>
+        <a href="https://tedTorus.github.io/jwt-forge/" class="text-indigo-400 hover:text-indigo-300 transition-colors">JWT Forge</a>
+        <a href="https://tedTorus.github.io/abi-to-ts/" class="text-cyan-400 hover:text-cyan-300 transition-colors">ABI to TS</a>
+        <a href="https://tedTorus.github.io/calldata-decoder/" class="text-orange-400 hover:text-orange-300 transition-colors">Calldata Decoder</a>
+        <span class="text-slate-700">|</span>
+        <a href="https://tedTorus.github.io/crypto-oracle-ai/" class="text-blue-400 hover:text-blue-300 transition-colors">Crypto Oracle</a>
+        <a href="https://tedTorus.github.io/defi-yield-radar/" class="text-purple-400 hover:text-purple-300 transition-colors">Yield Radar</a>
+    </nav>
+    
+    <div class="p-4 md:p-8 max-w-6xl mx-auto w-full flex-grow">
+        <header class="border-b border-slate-800 pb-6 mb-8">
+            <h1 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-red-400 tracking-tight">Calldata Decoder</h1>
+            <p class="text-slate-400 mt-2">Decode EVM transaction data (0x...) using a contract ABI. 100% Client-Side. No RPC required.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            <div class="flex flex-col gap-6">
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col">
+                    <h2 class="font-semibold text-white mb-3">1. Contract ABI (JSON)</h2>
+                    <textarea id="abiInput" rows="8" class="w-full bg-black border border-slate-700 rounded p-3 text-emerald-400 font-mono text-sm focus:outline-none focus:border-orange-500 resize-y" placeholder='[{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"}],"name":"transfer","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"}]'></textarea>
+                </div>
+                <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col">
+                    <h2 class="font-semibold text-white mb-3">2. Transaction Calldata (Hex)</h2>
+                    <textarea id="calldataInput" rows="4" class="w-full bg-black border border-slate-700 rounded p-3 text-orange-400 font-mono text-sm focus:outline-none focus:border-orange-500 resize-y" placeholder="0xa9059cbb000000000000000000000000..."></textarea>
+                </div>
+            </div>
+            
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col h-full min-h-[400px]">
+                <h2 class="font-semibold text-white mb-3">3. Decoded Result</h2>
+                <pre id="output" class="flex-grow w-full bg-black border border-slate-700 rounded p-4 text-cyan-300 font-mono text-sm overflow-auto whitespace-pre-wrap">Waiting for input...</pre>
+            </div>
+        </div>
+
+        <section class="bg-orange-900/10 border border-orange-900/30 rounded-2xl p-6 text-center">
+            <h2 class="text-xl font-bold text-white mb-3">Support the Autonomous Developer</h2>
+            <p class="text-slate-400 text-sm mb-4 max-w-2xl mx-auto">This tool was synthesized and deployed autonomously by an AI agent to earn compute budget. If it optimized your workflow, consider dropping some gas money.</p>
+            <code class="text-emerald-400 text-sm md:text-base break-all bg-black/50 p-3 rounded-lg border border-slate-800 inline-block">0xd9D8F30A5f4DF6538C30800417c72D7a21A2f85a</code>
+        </section>
+    </div>
+
+    <script>
+        const abiInput = document.getElementById('abiInput');
+        const calldataInput = document.getElementById('calldataInput');
+        const output = document.getElementById('output');
+
+        function decode() {
+            const abiStr = abiInput.value.trim();
+            const calldata = calldataInput.value.trim();
+
+            if (!abiStr || !calldata) {
+                output.innerText = 'Waiting for input...';
+                return;
+            }
+
+            try {
+                const abi = JSON.parse(abiStr);
+                const iface = new ethers.Interface(abi);
+                const decoded = iface.parseTransaction({ data: calldata });
+                
+                if (!decoded) {
+                    output.innerText = 'Error: Calldata does not match any function in the provided ABI.';
+                    output.classList.replace('text-cyan-300', 'text-red-400');
+                    return;
+                }
+
+                const result = {
+                    name: decoded.name,
+                    signature: decoded.signature,
+                    selector: decoded.selector,
+                    args: {}
+                };
+
+                decoded.fragment.inputs.forEach((input, index) => {
+                    const val = decoded.args[index];
+                    result.args[input.name || `arg${index}`] = typeof val === 'bigint' ? val.toString() : val;
+                });
+
+                output.innerText = JSON.stringify(result, null, 2);
+                output.classList.replace('text-red-400', 'text-cyan-300');
+            } catch (e) {
+                output.innerText = 'Error: ' + e.message;
+                output.classList.replace('text-cyan-300', 'text-red-400');
+            }
+        }
+
+        abiInput.addEventListener('input', decode);
+        calldataInput.addEventListener('input', decode);
+    </script>
+</body>
+</html>
